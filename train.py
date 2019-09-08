@@ -144,11 +144,29 @@ def train(cfg):
             if running_loss < 2:
                 pass
 
-# def main():
-if cfg.MODEL.DEVICE == "cuda":
-    os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID  # new add by gu
-cudnn.benchmark = True
-train(cfg)
+import argparse
 
-# if __name__ == 'main':
-#     main()
+def main():
+    parser = argparse.ArgumentParser(description="ReID Baseline Training")
+    parser.add_argument(
+        "--config_file", default="", help="path to config file", type=str
+    )
+    parser.add_argument("opts", help="Modify config options using the command-line", default=None,
+                        nargs=argparse.REMAINDER)
+
+    args = parser.parse_args()
+
+    num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
+
+    if args.config_file != "":
+        cfg.merge_from_file(args.config_file)
+    cfg.merge_from_list(args.opts)
+    cfg.freeze()
+
+    if cfg.MODEL.DEVICE == "cuda":
+        os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID  # new add by gu
+    cudnn.benchmark = True
+    train(cfg)
+
+if __name__ == 'main':
+    main()
