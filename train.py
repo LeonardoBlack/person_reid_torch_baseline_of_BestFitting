@@ -1,0 +1,154 @@
+from dataset import make_data_loader
+
+import torch.nn as nn
+import torch.optim as optim
+
+import torchvision.models as models
+
+import numpy as np
+
+from torch.backends import cudnn
+
+def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
+    """Evaluation with market1501 metric
+        Key: for each query identity, its gallery images from the same camera view are discarded.
+        """
+    num_q, num_g = distmat.shape
+    if num_g < max_rank:
+        max_rank = num_g
+        print("Note: number of gallery samples is quite small, got {}".format(num_g))
+    indices = np.argsort(distmat, axis=1)
+    matches = (g_pids[indices] == q_pids[:, np.newaxis]).astype(np.int32)
+
+    # compute cmc curve for each query
+    all_cmc = []
+    all_AP = []
+    num_valid_q = 0.  # number of valid query
+    for q_idx in range(num_q):
+        # get query pid and camid
+        q_pid = q_pids[q_idx]
+        q_camid = q_camids[q_idx]
+
+        # remove gallery samples that have the same pid and camid with query
+        order = indices[q_idx]
+        remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid)
+        keep = np.invert(remove)
+
+        # compute cmc curve
+        # binary vector, positions with value 1 are correct matches
+        orig_cmc = matches[q_idx][keep]
+        if not np.any(orig_cmc):
+            # this condition is true when query identity does not appear in gallery
+            continue
+
+        cmc = orig_cmc.cumsum()
+        cmc[cmc > 1] = 1
+
+        all_cmc.append(cmc[:max_rank])
+        num_valid_q += 1.
+
+        # compute average precision
+        # reference: https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Average_precision
+        num_rel = orig_cmc.sum()
+        tmp_cmc = orig_cmc.cumsum()
+        tmp_cmc = [x / (i + 1.) for i, x in enumerate(tmp_cmc)]
+        tmp_cmc = np.asarray(tmp_cmc) * orig_cmc
+        AP = tmp_cmc.sum() / num_rel
+        all_AP.append(AP)
+
+    assert num_valid_q > 0, "Error: all query identities do not appear in gallery"
+
+    all_cmc = np.asarray(all_cmc).astype(np.float32)
+    all_cmc = all_cmc.sum(0) / num_valid_q
+    mAP = np.mean(all_AP)
+
+    return all_cmc, mAP
+
+import torch
+from loss_fn import euclidean_dist,TripletLoss
+
+from config import _C as cfg
+import os
+
+def train(cfg):
+
+    train_loader, val_loader, num_query, num_class = make_data_loader(cfg)
+
+    # backbone
+    model = models.resnet50(pretrained=True)
+
+    # only crossentropy loss
+    criterion = nn.CrossEntropyLoss()
+
+    # only triplet-loss
+    # criterion = TripletLoss(margin=1.0)[0]
+
+    optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
+
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print('start training ......')
+    for idx_ep in range(cfg.SOLVER.MAX_EPOCHS):
+        running_loss = 0.0
+        print('epoch[%d/%d]' % (idx_ep+1,cfg.SOLVER.MAX_EPOCHS))
+        for i, data in enumerate(train_loader):
+            # get the inputs
+            inputs, labels = data[0],data[1]
+            # inputs = inputs.to(device)
+            # labels = labels.to(device)
+
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            # print statistics
+            running_loss += loss.item()
+            if i % cfg.SOLVER.LOG_PERIOD == cfg.SOLVER.LOG_PERIOD-1:    # print every 2000 mini-batches
+                print('[%4d/%4d] loss: %.5f' % (i + 1,len(train_loader),
+                                                             running_loss / cfg.SOLVER.LOG_PERIOD))
+                running_loss = 0.0
+
+        # evaluation after finish a epoch,may save the model
+        if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1:
+            features = []
+            pids = []
+            camids = []
+            for i,data in enumerate(val_loader):
+                inputs = data[0]
+                pids += data[1]
+                camids += data[2]
+                features += model(inputs)
+
+
+            q_features = features[:num_query]
+            q_pids = pids[:num_query]
+            q_camids = camids[:num_query]
+
+            g_features = features[num_query:]
+            g_pids = pids[num_query:]
+            g_camids = camids[num_query:]
+
+            # 交叉计算 query 和 gallery 的欧几里得距离
+            distmat = euclidean_dist(q_features,g_features)
+            distmat = distmat.cpu().numpy()
+
+            all_cmc,mAP = eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=20)
+            print('rank1:',all_cmc[0],
+                  'mAP:',mAP)
+
+            # save the  model
+            if running_loss < 2:
+                pass
+
+# def main():
+if cfg.MODEL.DEVICE == "cuda":
+    os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID  # new add by gu
+cudnn.benchmark = True
+train(cfg)
+
+# if __name__ == 'main':
+#     main()
