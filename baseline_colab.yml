@@ -17,7 +17,7 @@ INPUT:
 
 DATASETS:
   NAMES: ('market1501')
-  ROOT_DIR: ('/content/data')
+  ROOT_DIR: "/content/data"
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
