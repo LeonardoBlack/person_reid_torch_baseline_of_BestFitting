@@ -117,15 +117,15 @@ def train(cfg):
                                                              running_loss / cfg.SOLVER.LOG_PERIOD))
                 running_loss = 0.0
                 time_elapsed = time.time() - since
-                print('Training {:.0f}batches elapsed {:.0f}m {:.04f}s'.format(cfg.SOLVER.LOG_PERIOD, i,
+                print('Training {:.0f}batches elapsed {:.0f}m {:.04f}s'.format(cfg.SOLVER.LOG_PERIOD,
                                                                                time_elapsed // 60, time_elapsed % 60))
                 since = time.time()
         # evaluation after finish a epoch,may save the model
         if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1:
 
             since = time.time()
-            features = torch.from_numpy(np.array([]))
-            features.to(device)
+            # features = torch.from_numpy(np.array([]))
+            features = []
             pids = []
             camids = []
 
@@ -135,11 +135,12 @@ def train(cfg):
                 camids += data[2]
 
                 inputs = inputs.to(device)
-                features += model(inputs)
+                features.append(model(inputs))
 
                 # set copy to gpu
                 pids = pids.to(device)
                 camids = pids.to(device)
+                features.to(device)
 
             q_features = features[:num_query]
             q_pids = pids[:num_query]
