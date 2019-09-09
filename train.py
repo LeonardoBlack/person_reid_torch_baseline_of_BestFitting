@@ -110,7 +110,7 @@ def train(cfg):
             optimizer.step()
 
             time_elapsed = time.time() - since
-            print('Training the batch_{:.0f} elapsed {:.0f}m {:.0f}s'.format(i,
+            print('Training the batch_{:.0f} elapsed {:.0f}m {:.04f}s'.format(i,
                 time_elapsed // 60, time_elapsed % 60))
 
             # print statistics
@@ -151,7 +151,7 @@ def train(cfg):
                   'mAP:',mAP)
 
             time_elapsed = time.time() - since
-            print('evaluate time elapsed {:.0f}m {:.0f}s'.format(
+            print('evaluate time elapsed {:.0f}m {:.04f}s'.format(
                 time_elapsed // 60, time_elapsed % 60))
             # save the  model
             if running_loss < 2:
