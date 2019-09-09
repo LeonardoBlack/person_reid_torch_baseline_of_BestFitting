@@ -125,14 +125,21 @@ def train(cfg):
 
             since = time.time()
             features = []
+            features.to(device)
             pids = []
             camids = []
+
             for i,data in enumerate(val_loader):
                 inputs = data[0]
                 pids += data[1]
                 camids += data[2]
+
+                inputs = inputs.to(device)
                 features += model(inputs)
 
+                # set copy to gpu
+                pids = pids.to(device)
+                camids = pids.to(device)
 
             q_features = features[:num_query]
             q_pids = pids[:num_query]

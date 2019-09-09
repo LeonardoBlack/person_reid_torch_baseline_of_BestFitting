@@ -70,7 +70,7 @@ _C.DATASETS = CN()
 # List of the dataset names for training, as present in paths_catalog.py
 _C.DATASETS.NAMES = ('dutemtmc-reid')
 # Root directory where datasets should be used (and downloaded if not found)
-_C.DATASETS.ROOT_DIR = ('/students/julyedu_545342/reid-data/dukemtmc-reid')
+_C.DATASETS.ROOT_DIR = ('/students/julyedu_545342/reid-data/')
 
 # -----------------------------------------------------------------------------
 # DataLoader
@@ -133,7 +133,7 @@ _C.SOLVER.CHECKPOINT_PERIOD = 5
 # iteration of display training log
 _C.SOLVER.LOG_PERIOD = 10  # num_batch
 # epoch number of validation
-_C.SOLVER.EVAL_PERIOD = 10
+_C.SOLVER.EVAL_PERIOD = 1
 
 # Number of images per batch
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
