@@ -93,9 +93,9 @@ def train(cfg):
     for idx_ep in range(cfg.SOLVER.MAX_EPOCHS):
         running_loss = 0.0
         print('epoch[%d/%d]' % (idx_ep+1,cfg.SOLVER.MAX_EPOCHS))
+        since = time.time()
         for i, data in enumerate(train_loader):
             # get the inputs
-            since = time.time()
             inputs, labels = data[0],data[1]
             inputs = inputs.to(device)
             labels = labels.to(device)
@@ -109,9 +109,6 @@ def train(cfg):
             loss.backward()
             optimizer.step()
 
-            time_elapsed = time.time() - since
-            print('Training the batch_{:.0f} elapsed {:.0f}m {:.04f}s'.format(i,
-                time_elapsed // 60, time_elapsed % 60))
 
             # print statistics
             running_loss += loss.item()
@@ -119,12 +116,15 @@ def train(cfg):
                 print('[%4d/%4d] loss: %.5f' % (i + 1,len(train_loader),
                                                              running_loss / cfg.SOLVER.LOG_PERIOD))
                 running_loss = 0.0
-
+                time_elapsed = time.time() - since
+                print('Training {:.0f}batches elapsed {:.0f}m {:.04f}s'.format(cfg.SOLVER.LOG_PERIOD, i,
+                                                                               time_elapsed // 60, time_elapsed % 60))
+                since = time.time()
         # evaluation after finish a epoch,may save the model
         if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1:
 
             since = time.time()
-            features = []
+            features = torch.from_numpy(np.array([]))
             features.to(device)
             pids = []
             camids = []
