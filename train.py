@@ -109,7 +109,6 @@ def train(cfg):
             loss.backward()
             optimizer.step()
 
-
             # print statistics
             running_loss += loss.item()
             if i % cfg.SOLVER.LOG_PERIOD == cfg.SOLVER.LOG_PERIOD-1:    # print every 2000 mini-batches
@@ -138,9 +137,9 @@ def train(cfg):
                 features.append(model(inputs))
 
                 # set copy to gpu
-                pids = pids.to(device)
-                camids = pids.to(device)
-                features.to(device)
+                # pids = pids.to(device)
+                # camids = pids.to(device)
+                # features.to(device)
 
             q_features = features[:num_query]
             q_pids = pids[:num_query]
