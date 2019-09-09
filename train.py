@@ -18,6 +18,8 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
         max_rank = num_g
         print("Note: number of gallery samples is quite small, got {}".format(num_g))
     indices = np.argsort(distmat, axis=1)
+    indices = indices.astype(np.int32)
+    # print('*'*10,type(indices),type(g_pids),type(q_pids))
     matches = (g_pids[indices] == q_pids[:, np.newaxis]).astype(np.int32)
 
     # compute cmc curve for each query
@@ -135,12 +137,16 @@ def train(cfg):
                     camids += data[2]
 
                     inputs = inputs.to(device)
-                    features.append(model(inputs).cpu().numpy())
+                    features.append(model(inputs))
 
+                features = torch.cat(features, dim=0)
                 # set copy to gpu
                 # pids = pids.to(device)
                 # camids = pids.to(device)
                 # features.to(device)
+
+            pids = np.asarray(pids)
+            camids = np.asarray(camids)
 
             q_features = features[:num_query]
             q_pids = pids[:num_query]
