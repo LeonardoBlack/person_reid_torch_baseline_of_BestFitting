@@ -135,6 +135,7 @@ def train(cfg):
 
                 inputs = inputs.to(device)
                 features.append(model(inputs))
+                del inputs
 
                 # set copy to gpu
                 # pids = pids.to(device)
