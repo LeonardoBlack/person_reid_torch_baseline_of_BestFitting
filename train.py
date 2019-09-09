@@ -122,7 +122,7 @@ def train(cfg):
                                                                                time_elapsed // 60, time_elapsed % 60))
                 since = time.time()
         # evaluation after finish a epoch,may save the model
-        if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1:
+        if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1:
 
             since = time.time()
             # features = torch.from_numpy(np.array([]))
@@ -168,8 +168,12 @@ def train(cfg):
             print('evaluate time elapsed {:.0f}m {:.04f}s'.format(
                 time_elapsed // 60, time_elapsed % 60))
             # save the  model
-            if running_loss < 2:
-                pass
+            if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1:
+                filename = 'ep_%drank1_%05fmAP%05f' % (idx_ep+1,all_cmc[0],mAP)
+                torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))
+
+    print('finish training >.<')
+
 
 import argparse
 
