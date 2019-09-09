@@ -166,7 +166,8 @@ def main():
     if cfg.MODEL.DEVICE == "cuda":
         os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID  # new add by gu
     cudnn.benchmark = True
+    # print('start training!!!')
     train(cfg)
 
-if __name__ == 'main':
+if __name__ == '__main__':
     main()
