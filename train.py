@@ -70,12 +70,16 @@ from loss_fn import euclidean_dist,TripletLoss
 from config import _C as cfg
 import os
 
+import time
+
 def train(cfg):
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     train_loader, val_loader, num_query, num_class = make_data_loader(cfg)
 
     # backbone
     model = models.resnet50(pretrained=True)
+    model.to(device)
 
     # only crossentropy loss
     criterion = nn.CrossEntropyLoss()
@@ -85,16 +89,16 @@ def train(cfg):
 
     optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
 
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('start training ......')
     for idx_ep in range(cfg.SOLVER.MAX_EPOCHS):
         running_loss = 0.0
         print('epoch[%d/%d]' % (idx_ep+1,cfg.SOLVER.MAX_EPOCHS))
         for i, data in enumerate(train_loader):
             # get the inputs
+            since = time.time()
             inputs, labels = data[0],data[1]
-            # inputs = inputs.to(device)
-            # labels = labels.to(device)
+            inputs = inputs.to(device)
+            labels = labels.to(device)
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -105,6 +109,10 @@ def train(cfg):
             loss.backward()
             optimizer.step()
 
+            time_elapsed = time.time() - since
+            print('Training the batch_{:.0f} elapsed {:.0f}m {:.0f}s'.format(i,
+                time_elapsed // 60, time_elapsed % 60))
+
             # print statistics
             running_loss += loss.item()
             if i % cfg.SOLVER.LOG_PERIOD == cfg.SOLVER.LOG_PERIOD-1:    # print every 2000 mini-batches
@@ -114,6 +122,8 @@ def train(cfg):
 
         # evaluation after finish a epoch,may save the model
         if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1:
+
+            since = time.time()
             features = []
             pids = []
             camids = []
@@ -140,6 +150,9 @@ def train(cfg):
             print('rank1:',all_cmc[0],
                   'mAP:',mAP)
 
+            time_elapsed = time.time() - since
+            print('evaluate time elapsed {:.0f}m {:.0f}s'.format(
+                time_elapsed // 60, time_elapsed % 60))
             # save the  model
             if running_loss < 2:
                 pass
@@ -163,10 +176,10 @@ def main():
     cfg.merge_from_list(args.opts)
     cfg.freeze()
 
-    if cfg.MODEL.DEVICE == "cuda":
-        os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID  # new add by gu
-    cudnn.benchmark = True
-    # print('start training!!!')
+    # if cfg.MODEL.DEVICE == "cuda":
+    #     os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID  # new add by gu
+    # cudnn.benchmark = True
+    # print('config device:%s , os.environ:%s' % (cfg.MODEL.DEVICE,os.environ['CUDA_VISIBLE_DEVICES']))
     train(cfg)
 
 if __name__ == '__main__':
