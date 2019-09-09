@@ -128,14 +128,14 @@ def train(cfg):
             pids = []
             camids = []
 
-            for i,data in enumerate(val_loader):
-                inputs = data[0]
-                pids += data[1]
-                camids += data[2]
+            with torch.no_grad():
+                for i,data in enumerate(val_loader):
+                    inputs = data[0]
+                    pids += data[1]
+                    camids += data[2]
 
-                inputs = inputs.to(device)
-                features.append(model(inputs))
-                del inputs
+                    inputs = inputs.to(device)
+                    features.append(model(inputs).cpu().numpy())
 
                 # set copy to gpu
                 # pids = pids.to(device)

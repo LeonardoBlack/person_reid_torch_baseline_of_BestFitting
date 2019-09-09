@@ -21,7 +21,7 @@ def euclidean_dist(x, y):
     Returns:
       dist: pytorch Variable, with shape [m, n]
     """
-    m, n = x.size(0), y.size(0)
+    m, n = x.size[0], y.size[0]
     xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
     yy = torch.pow(y, 2).sum(1, keepdim=True).expand(n, m).t()
     dist = xx + yy
