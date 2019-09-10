@@ -135,14 +135,14 @@ def train(cfg):
             pids = []
             camids = []
 
-            # with torch.no_grad():
-            for i,data in enumerate(val_loader):
-                inputs = data[0]
-                pids += data[1]
-                camids += data[2]
+            with torch.no_grad():
+                for i,data in enumerate(val_loader):
+                    inputs = data[0]
+                    pids += data[1]
+                    camids += data[2]
 
-                inputs = inputs.to(device)
-                features.append(model(inputs))
+                    inputs = inputs.to(device)
+                    features.append(model(inputs))
 
             features = torch.cat(features, dim=0)
                 # set copy to gpu
@@ -175,6 +175,8 @@ def train(cfg):
             # save the  model
             if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1:
                 filename = 'ep_%drank1_%05fmAP%05f' % (idx_ep+1,all_cmc[0],mAP)
+                if not os.path.exists():
+                   os.mkdir(cfg.OUTPUT_DIR)
                 torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))
 
     print('finish training >.<')

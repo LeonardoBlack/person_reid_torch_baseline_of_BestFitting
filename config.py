@@ -144,7 +144,7 @@ _C.SOLVER.IMS_PER_BATCH = 32
 # see 2 images per batch
 _C.TEST = CN()
 # Number of images per batch during test
-_C.TEST.IMS_PER_BATCH = 64
+_C.TEST.IMS_PER_BATCH = 32
 # If test with re-ranking, options: 'yes','no'
 _C.TEST.RE_RANKING = 'no'
 # Path to trained model
