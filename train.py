@@ -84,10 +84,10 @@ def train(cfg):
     model.to(device)
 
     # only crossentropy loss
-    criterion = nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()
 
     # only triplet-loss
-    # criterion = TripletLoss(margin=1.0)[0]
+    criterion = TripletLoss(margin=1.0)
 
     optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
 
@@ -107,7 +107,7 @@ def train(cfg):
 
             # forward + backward + optimize
             outputs = model(inputs)
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, labels)[0]
             loss.backward()
             optimizer.step()
 
@@ -130,16 +130,16 @@ def train(cfg):
             pids = []
             camids = []
 
-            with torch.no_grad():
-                for i,data in enumerate(val_loader):
-                    inputs = data[0]
-                    pids += data[1]
-                    camids += data[2]
+            # with torch.no_grad():
+            for i,data in enumerate(val_loader):
+                inputs = data[0]
+                pids += data[1]
+                camids += data[2]
 
-                    inputs = inputs.to(device)
-                    features.append(model(inputs))
+                inputs = inputs.to(device)
+                features.append(model(inputs))
 
-                features = torch.cat(features, dim=0)
+            features = torch.cat(features, dim=0)
                 # set copy to gpu
                 # pids = pids.to(device)
                 # camids = pids.to(device)

@@ -57,30 +57,41 @@ def hard_example_mining(dist_mat, labels, return_inds=False):
 
     # `dist_ap` means distance(anchor, positive)
     # both `dist_ap` and `relative_p_inds` with shape [N, 1]
-    dist_ap, relative_p_inds = torch.max(
-        dist_mat[is_pos].contiguous().view(N, -1), 1, keepdim=True)
-    # `dist_an` means distance(anchor, negative)
-    # both `dist_an` and `relative_n_inds` with shape [N, 1]
-    dist_an, relative_n_inds = torch.min(
-        dist_mat[is_neg].contiguous().view(N, -1), 1, keepdim=True)
-    # shape [N]
-    dist_ap = dist_ap.squeeze(1)
-    dist_an = dist_an.squeeze(1)
+    # print('-'*10,dist_mat.shape)
+    # print('-'*10,is_pos.shape,is_neg.shape)
+    # print('-'*10,dist_mat[is_pos].shape)
 
-    if return_inds:
-        # shape [N, N]
-        ind = (labels.new().resize_as_(labels)
-               .copy_(torch.arange(0, N).long())
-               .unsqueeze(0).expand(N, N))
-        # shape [N, 1]
-        p_inds = torch.gather(
-            ind[is_pos].contiguous().view(N, -1), 1, relative_p_inds.data)
-        n_inds = torch.gather(
-            ind[is_neg].contiguous().view(N, -1), 1, relative_n_inds.data)
-        # shape [N]
-        p_inds = p_inds.squeeze(1)
-        n_inds = n_inds.squeeze(1)
-        return dist_ap, dist_an, p_inds, n_inds
+
+    # dist_ap, relative_p_inds = torch.max(
+    #     dist_mat.contiguous().view(N, -1)[is_pos.contiguous().view(N, -1)], 1, keepdim=True)
+    #
+    # dist_ap, relative_p_inds = torch.max(
+    #     dist_mat.contiguous().view(N, -1)[is_pos.contiguous().view(N, -1)], 1, keepdim=True)
+    # # `dist_an` means distance(anchor, negative)
+    # # both `dist_an` and `relative_n_inds` with shape [N, 1]
+    # dist_an, relative_n_inds = torch.min(
+    #     dist_mat.contiguous().view(N, -1)[is_neg.contiguous().view(N, -1)], 1, keepdim=True)
+    # shape [N]
+    dist_ap = torch.FloatTensor([torch.max(mt[mk]) for mt,mk in zip(dist_mat,is_pos)]).view(N,1)
+    dist_an = torch.FloatTensor([torch.min(mt[mk]) for mt,mk in zip(dist_mat,is_neg)]).view(N,1)
+
+    # dist_ap = dist_ap.squeeze(-1)
+    # dist_an = dist_an.squeeze(-1)
+
+    # if return_inds:
+    #     # shape [N, N]
+    #     ind = (labels.new().resize_as_(labels)
+    #            .copy_(torch.arange(0, N).long())
+    #            .unsqueeze(0).expand(N, N))
+    #     # shape [N, 1]
+    #     p_inds = torch.gather(
+    #         ind[is_pos].contiguous().view(N, -1), 1, relative_p_inds.data)
+    #     n_inds = torch.gather(
+    #         ind[is_neg].contiguous().view(N, -1), 1, relative_n_inds.data)
+    #     # shape [N]
+    #     p_inds = p_inds.squeeze(1)
+    #     n_inds = n_inds.squeeze(1)
+    #     return dist_ap, dist_an, p_inds, n_inds
 
     return dist_ap, dist_an
 
@@ -100,6 +111,7 @@ class TripletLoss(object):
         if normalize_feature:
             global_feat = normalize(global_feat, axis=-1)
         dist_mat = euclidean_dist(global_feat, global_feat)
+
         dist_ap, dist_an = hard_example_mining(
             dist_mat, labels)
 
@@ -110,4 +122,5 @@ class TripletLoss(object):
         else:
             loss = self.ranking_loss(dist_an - dist_ap, y)
 
+        loss = loss.requires_grad_()
         return loss, dist_ap, dist_an
