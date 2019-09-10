@@ -61,16 +61,13 @@ def hard_example_mining(dist_mat, labels, return_inds=False):
     # print('-'*10,is_pos.shape,is_neg.shape)
     # print('-'*10,dist_mat[is_pos].shape)
 
-
     # dist_ap, relative_p_inds = torch.max(
-    #     dist_mat.contiguous().view(N, -1)[is_pos.contiguous().view(N, -1)], 1, keepdim=True)
+    #     dist_mat[is_pos].contiguous().view(N, -1), 1, keepdim=True)
     #
-    # dist_ap, relative_p_inds = torch.max(
-    #     dist_mat.contiguous().view(N, -1)[is_pos.contiguous().view(N, -1)], 1, keepdim=True)
     # # `dist_an` means distance(anchor, negative)
     # # both `dist_an` and `relative_n_inds` with shape [N, 1]
     # dist_an, relative_n_inds = torch.min(
-    #     dist_mat.contiguous().view(N, -1)[is_neg.contiguous().view(N, -1)], 1, keepdim=True)
+    #     dist_mat[is_neg].contiguous().view(N, -1), 1, keepdim=True)
     # shape [N]
     dist_ap = torch.FloatTensor([torch.max(mt[mk]) for mt,mk in zip(dist_mat,is_pos)]).view(N,1)
     dist_an = torch.FloatTensor([torch.min(mt[mk]) for mt,mk in zip(dist_mat,is_neg)]).view(N,1)
@@ -123,4 +120,4 @@ class TripletLoss(object):
             loss = self.ranking_loss(dist_an - dist_ap, y)
 
         loss = loss.requires_grad_()
-        return loss, dist_ap, dist_an
+        return loss

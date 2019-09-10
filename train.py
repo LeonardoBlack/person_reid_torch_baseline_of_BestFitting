@@ -73,6 +73,7 @@ from config import _C as cfg
 import os
 
 import time
+import progressbar
 
 def train(cfg):
 
@@ -81,13 +82,21 @@ def train(cfg):
 
     # backbone
     model = models.resnet50(pretrained=True)
+    for layer in model._modules:
+        if layer == 'fc':
+            # print(layer)
+            continue
+        model._modules[layer].training = False
+
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, num_class)
     model.to(device)
 
     # only crossentropy loss
-    # criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss()
 
     # only triplet-loss
-    criterion = TripletLoss(margin=1.0)
+    # criterion = TripletLoss(margin=1.0)
 
     optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
 
@@ -95,9 +104,9 @@ def train(cfg):
     for idx_ep in range(cfg.SOLVER.MAX_EPOCHS):
         running_loss = 0.0
         print('epoch[%d/%d]' % (idx_ep+1,cfg.SOLVER.MAX_EPOCHS))
-        since = time.time()
-        for i, data in enumerate(train_loader):
+        for i in progressbar.progressbar(range(len(train_loader)),redirect_stdout=True):
             # get the inputs
+            data = next(iter(train_loader))
             inputs, labels = data[0],data[1]
             inputs = inputs.to(device)
             labels = labels.to(device)
@@ -107,20 +116,16 @@ def train(cfg):
 
             # forward + backward + optimize
             outputs = model(inputs)
-            loss = criterion(outputs, labels)[0]
+            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
 
             # print statistics
             running_loss += loss.item()
             if i % cfg.SOLVER.LOG_PERIOD == cfg.SOLVER.LOG_PERIOD-1:    # print every 2000 mini-batches
-                print('[%4d/%4d] loss: %.5f' % (i + 1,len(train_loader),
-                                                             running_loss / cfg.SOLVER.LOG_PERIOD))
+                print('last %d batches mean-loss: %.5f' % (cfg.SOLVER.LOG_PERIOD,running_loss / cfg.SOLVER.LOG_PERIOD))
                 running_loss = 0.0
-                time_elapsed = time.time() - since
-                print('Training {:.0f}batches elapsed {:.0f}m {:.04f}s'.format(cfg.SOLVER.LOG_PERIOD,
-                                                                               time_elapsed // 60, time_elapsed % 60))
-                since = time.time()
+
         # evaluation after finish a epoch,may save the model
         if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1:
 
@@ -156,7 +161,7 @@ def train(cfg):
             g_pids = pids[num_query:]
             g_camids = camids[num_query:]
 
-            # 交叉计算 query 和 gallery 的欧几里得距离
+            # 交叉计算 query 和 gallery 的欧氏距离
             distmat = euclidean_dist(q_features,g_features)
             distmat = distmat.cpu().numpy()
 
