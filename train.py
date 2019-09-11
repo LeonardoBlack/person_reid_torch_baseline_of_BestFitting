@@ -9,6 +9,92 @@ import numpy as np
 
 from torch.backends import cudnn
 
+from bisect import bisect_right
+import torch
+
+
+# FIXME ideally this would be achieved with a CombinedLRScheduler,
+# separating MultiStepLR with WarmupLR
+# but the current LRScheduler design doesn't allow it
+
+class WarmupMultiStepLR(torch.optim.lr_scheduler._LRScheduler):
+    def __init__(
+        self,
+        optimizer,
+        milestones,
+        gamma=0.1,
+        warmup_factor=1.0 / 3,
+        warmup_iters=500,
+        warmup_method="linear",
+        last_epoch=-1,
+    ):
+        if not list(milestones) == sorted(milestones):
+            raise ValueError(
+                "Milestones should be a list of" " increasing integers. Got {}",
+                milestones,
+            )
+
+        if warmup_method not in ("constant", "linear"):
+            raise ValueError(
+                "Only 'constant' or 'linear' warmup_method accepted"
+                "got {}".format(warmup_method)
+            )
+        self.milestones = milestones
+        self.gamma = gamma
+        self.warmup_factor = warmup_factor
+        self.warmup_iters = warmup_iters
+        self.warmup_method = warmup_method
+        super(WarmupMultiStepLR, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        warmup_factor = 1
+        if self.last_epoch < self.warmup_iters:
+            if self.warmup_method == "constant":
+                warmup_factor = self.warmup_factor
+            elif self.warmup_method == "linear":
+                alpha = self.last_epoch / self.warmup_iters
+                warmup_factor = self.warmup_factor * (1 - alpha) + alpha
+        return [
+            base_lr
+            * warmup_factor
+            * self.gamma ** bisect_right(self.milestones, self.last_epoch)
+            for base_lr in self.base_lrs
+        ]
+
+
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for
+    the specified values of k.
+
+    Args:
+        output (torch.Tensor): prediction matrix with shape (batch_size, num_classes).
+        target (torch.LongTensor): ground truth labels with shape (batch_size).
+        topk (tuple, optional): accuracy at top-k will be computed. For example,
+            topk=(1, 5) means accuracy at top-1 and top-5 will be computed.
+
+    Returns:
+        list: accuracy at top-k.
+
+    """
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    if isinstance(output, (tuple, list)):
+        output = output[0]
+
+    _, pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+        acc = correct_k.mul_(100.0 / batch_size)
+        res.append(acc)
+
+    return res
+
 def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
     """Evaluation with market1501 metric
         Key: for each query identity, its gallery images from the same camera view are discarded.
@@ -98,11 +184,17 @@ def train(cfg):
     # only triplet-loss
     # criterion = TripletLoss(margin=1.0)
 
+
+    startEp = 4
+
     optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
+    scheduler = WarmupMultiStepLR(optimizer, cfg.SOLVER.STEPS, cfg.SOLVER.GAMMA, cfg.SOLVER.WARMUP_FACTOR,
+                                          cfg.SOLVER.WARMUP_ITERS, cfg.SOLVER.WARMUP_METHOD, 0)
 
     print('start training ......')
     for idx_ep in range(cfg.SOLVER.MAX_EPOCHS):
         running_loss = 0.0
+        acc = 0
         print('epoch[%d/%d]' % (idx_ep+1,cfg.SOLVER.MAX_EPOCHS))
         for i in progressbar.progressbar(range(len(train_loader)),redirect_stdout=True):
             # get the inputs
@@ -118,13 +210,15 @@ def train(cfg):
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
+            scheduler.step()
             optimizer.step()
 
             # print statistics
             running_loss += loss.item()
+            acc += accuracy(outputs,labels)[0]  # only the top one
             if i % cfg.SOLVER.LOG_PERIOD == cfg.SOLVER.LOG_PERIOD-1:    # print every 2000 mini-batches
-                print('last %d batches mean-loss: %.5f' % (cfg.SOLVER.LOG_PERIOD,running_loss / cfg.SOLVER.LOG_PERIOD))
-                running_loss = 0.0
+                print('mean-loss: %.5f mean-acc：%.3f' % (running_loss / (i+1), acc / (i+1)))
+                # running_loss = 0.0
 
         # evaluation after finish a epoch,may save the model
         if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1:
@@ -172,12 +266,12 @@ def train(cfg):
             time_elapsed = time.time() - since
             print('evaluate time elapsed {:.0f}m {:.04f}s'.format(
                 time_elapsed // 60, time_elapsed % 60))
-            # save the  model
-            if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1:
-                filename = 'ep_%drank1_%05fmAP%05f' % (idx_ep+1,all_cmc[0],mAP)
-                if not os.path.exists():
-                   os.mkdir(cfg.OUTPUT_DIR)
-                torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))
+        # save the  model
+        if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1:
+            filename = 'ep_%dmLoss_%05fmAcc%05f' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
+            if not os.path.exists(cfg.OUTPUT_DIR):
+               os.mkdir(cfg.OUTPUT_DIR)
+            torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))
 
     print('finish training >.<')
 
