@@ -161,21 +161,34 @@ import os
 import time
 import progressbar
 
+from model import resnet50
+
 def train(cfg):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     train_loader, val_loader, num_query, num_class = make_data_loader(cfg)
 
     # backbone
-    model = models.resnet50(pretrained=True)
-    for layer in model._modules:
-        if layer == 'fc':
-            # print(layer)
-            continue
-        model._modules[layer].training = False
+    model = resnet50(num_class,loss='softmax', pretrained=True)#,last_stride=2)
 
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, num_class)
+    # 先锁定前面的特征提取层，仅仅训练后面的fc层
+    # for param in model.parameters():
+    #     param.requires_grad = False
+
+    for layer in list(model.children()):
+        if isinstance(layer,nn.Conv2d):
+            # print(layer)
+            for param in layer.parameters():
+                param.requires_grad = False
+        elif isinstance(layer,nn.Sequential):
+            # print(layer)
+            for l in layer:
+                if isinstance(l, nn.Conv2d):
+                    for param in l.parameters():
+                        param.requires_grad = False
+        else:
+            print(layer)
+
     model.to(device)
 
     # only crossentropy loss
@@ -188,8 +201,8 @@ def train(cfg):
     startEp = 4
 
     optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
-    scheduler = WarmupMultiStepLR(optimizer, cfg.SOLVER.STEPS, cfg.SOLVER.GAMMA, cfg.SOLVER.WARMUP_FACTOR,
-                                          cfg.SOLVER.WARMUP_ITERS, cfg.SOLVER.WARMUP_METHOD, 0)
+    # scheduler = WarmupMultiStepLR(optimizer, cfg.SOLVER.STEPS, cfg.SOLVER.GAMMA, cfg.SOLVER.WARMUP_FACTOR,
+    #                                       cfg.SOLVER.WARMUP_ITERS, cfg.SOLVER.WARMUP_METHOD, 0)
 
     print('start training ......')
     for idx_ep in range(cfg.SOLVER.MAX_EPOCHS):
@@ -210,7 +223,7 @@ def train(cfg):
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
-            scheduler.step()
+            # scheduler.step()
             optimizer.step()
 
             # print statistics
@@ -268,7 +281,7 @@ def train(cfg):
                 time_elapsed // 60, time_elapsed % 60))
         # save the  model
         if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1:
-            filename = 'ep_%dmLoss_%05fmAcc%05f' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
+            filename = 'fc2ep_%dmLoss_%05fmAcc%05f' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
             if not os.path.exists(cfg.OUTPUT_DIR):
                os.mkdir(cfg.OUTPUT_DIR)
             torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))
