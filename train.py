@@ -192,10 +192,10 @@ def train(cfg):
     model.to(device)
 
     # only crossentropy loss
-    criterion = nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()
 
     # only triplet-loss
-    # criterion = TripletLoss(margin=1.0)
+    criterion = TripletLoss(margin=0.3)
 
 
     startEp = 4

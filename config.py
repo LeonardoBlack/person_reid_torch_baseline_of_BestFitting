@@ -133,18 +133,18 @@ _C.SOLVER.CHECKPOINT_PERIOD = 1
 # iteration of display training log
 _C.SOLVER.LOG_PERIOD = 20  # num_batch
 # epoch number of validation
-_C.SOLVER.EVAL_PERIOD = 10
+_C.SOLVER.EVAL_PERIOD = 2
 
 # Number of images per batch
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
-_C.SOLVER.IMS_PER_BATCH = 8
+_C.SOLVER.IMS_PER_BATCH = 64
 
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
 _C.TEST = CN()
 # Number of images per batch during test
-_C.TEST.IMS_PER_BATCH = 8
+_C.TEST.IMS_PER_BATCH = 64
 # If test with re-ranking, options: 'yes','no'
 _C.TEST.RE_RANKING = 'no'
 # Path to trained model
