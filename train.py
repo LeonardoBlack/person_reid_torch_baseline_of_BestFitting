@@ -153,7 +153,10 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
     return all_cmc, mAP
 
 import torch
-from loss_fn import euclidean_dist,TripletLoss
+
+import torch.nn.functional as F
+
+from loss_fn import euclidean_dist,TripletLoss,softmax_triplet_loss
 
 from config import _C as cfg
 import os
@@ -169,46 +172,46 @@ def train(cfg):
     train_loader, val_loader, num_query, num_class = make_data_loader(cfg)
 
     # backbone
-    model = resnet50(num_class,loss='softmax', pretrained=True)#,last_stride=2)
+    model = resnet50(num_class,loss='triplet', pretrained=True)
+    # model = resnet50(num_class,loss='softmax', pretrained=True,fc_dims=[1000])#,last_stride=2)
+    # print('^'*10,'model.fc:',model.fc) # always None ,so only one classifier layer is fc
 
-    # 先锁定前面的特征提取层，仅仅训练后面的fc层
-    # for param in model.parameters():
-    #     param.requires_grad = False
+    update_params = model.parameters()
+    if cfg.MODEL.FROZEN_FEATURE_EXTRACTION:
+        update_params = []
+        print('Frozen the feature extraction layers!!!')
+        for name,param in model.named_parameters():
+            if 'classifier' in name or 'fc' in name:
+                # print(name)
+                continue
+            param.requires_grad = False
 
-    for layer in list(model.children()):
-        if isinstance(layer,nn.Conv2d):
-            # print(layer)
-            for param in layer.parameters():
-                param.requires_grad = False
-        elif isinstance(layer,nn.Sequential):
-            # print(layer)
-            for l in layer:
-                if isinstance(l, nn.Conv2d):
-                    for param in l.parameters():
-                        param.requires_grad = False
-        else:
-            print(layer)
+        for name,param in model.named_parameters():
+            if param.requires_grad == True:
+                # print(name)
+                update_params.append(param)
 
     model.to(device)
 
-    # only crossentropy loss
-    # criterion = nn.CrossEntropyLoss()
+    clf_ls = nn.CrossEntropyLoss()
+    triplet_ls = TripletLoss(margin=0.3)
 
-    # only triplet-loss
-    criterion = TripletLoss(margin=0.3)
+    startEp = 10
 
+    model.load_state_dict(torch.load('output/cfl1ep_2mLoss_9.274844mAcc0.000000_cetp.pth'))
 
-    startEp = 4
-
-    optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
+    # optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
+    optimizer = optim.Adam(update_params,lr=cfg.SOLVER.BASE_LR)
     # scheduler = WarmupMultiStepLR(optimizer, cfg.SOLVER.STEPS, cfg.SOLVER.GAMMA, cfg.SOLVER.WARMUP_FACTOR,
-    #                                       cfg.SOLVER.WARMUP_ITERS, cfg.SOLVER.WARMUP_METHOD, 0)
+    #                                       cfg.SOLVER.WARMUP_ITERS, cfg.SOLVER.WARMUP_METHOD)
 
     print('start training ......')
-    for idx_ep in range(cfg.SOLVER.MAX_EPOCHS):
+    for idx_ep in range(startEp,startEp+cfg.SOLVER.MAX_EPOCHS):
+        last_loss = 0.0
+        last_acc = 0.0
         running_loss = 0.0
         acc = 0
-        print('epoch[%d/%d]' % (idx_ep+1,cfg.SOLVER.MAX_EPOCHS))
+        print('epoch[%d/%d]' % (idx_ep+1,startEp+cfg.SOLVER.MAX_EPOCHS))
         for i in progressbar.progressbar(range(len(train_loader)),redirect_stdout=True):
             # get the inputs
             data = next(iter(train_loader))
@@ -220,21 +223,39 @@ def train(cfg):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
+            scores,embedings = model(inputs)
+
+            # print(type(scores),type(embedings),type(labels))
+            if cfg.DATALOADER.SAMPLER == 'softmax':
+                loss = clf_ls(scores, labels)
+            elif cfg.DATALOADER.SAMPLER == 'triplet':
+                loss = triplet_ls(embedings, labels,normalize_feature=True)
+            elif cfg.DATALOADER.SAMPLER == 'softmax-triplet':
+                triplet_loss = triplet_ls(embedings,labels)
+                clf_loss = clf_ls(scores,labels) # F.cross_entropy(scores,labels)
+                # print(type(triplet_loss),type(clf_loss))
+                loss = triplet_loss + clf_loss
+                # loss = loss.type(torch.cuda.FloatTensor)
+            else:
+                print('unknown sampler:',cfg.DATALOADER.SAMPLER)
+
             loss.backward()
-            # scheduler.step()
             optimizer.step()
+            # scheduler.step()
 
             # print statistics
             running_loss += loss.item()
-            acc += accuracy(outputs,labels)[0]  # only the top one
+            acc += accuracy(embedings,labels)[0]  # only the top one
             if i % cfg.SOLVER.LOG_PERIOD == cfg.SOLVER.LOG_PERIOD-1:    # print every 2000 mini-batches
-                print('mean-loss: %.5f mean-acc：%.3f' % (running_loss / (i+1), acc / (i+1)))
-                # running_loss = 0.0
+                print('last %d batches mean-loss: %.5f mean-acc：%.3f' % (cfg.SOLVER.LOG_PERIOD,
+                                         (running_loss-last_loss)/cfg.SOLVER.LOG_PERIOD,
+                                         (acc-last_acc)/cfg.SOLVER.LOG_PERIOD))
+                last_acc = acc
+                last_loss = running_loss
 
         # evaluation after finish a epoch,may save the model
-        if idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1:
+        if (idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1) \
+                and running_loss/len(train_loader) < 3:
 
             since = time.time()
             # features = torch.from_numpy(np.array([]))
@@ -249,7 +270,7 @@ def train(cfg):
                     camids += data[2]
 
                     inputs = inputs.to(device)
-                    features.append(model(inputs))
+                    features.append(model(inputs)[1])
 
             features = torch.cat(features, dim=0)
                 # set copy to gpu
@@ -281,7 +302,7 @@ def train(cfg):
                 time_elapsed // 60, time_elapsed % 60))
         # save the  model
         if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1:
-            filename = 'fc2ep_%dmLoss_%05fmAcc%05f' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
+            filename = 'cfl1ep_%dmLoss_%05fmAcc%05f_cetp.pth' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
             if not os.path.exists(cfg.OUTPUT_DIR):
                os.mkdir(cfg.OUTPUT_DIR)
             torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))

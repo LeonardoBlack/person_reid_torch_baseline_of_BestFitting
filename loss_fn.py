@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 def normalize(x, axis=-1):
     """Normalizing to unit length along the specified dimension.
@@ -69,8 +70,8 @@ def hard_example_mining(dist_mat, labels, return_inds=False):
     # dist_an, relative_n_inds = torch.min(
     #     dist_mat[is_neg].contiguous().view(N, -1), 1, keepdim=True)
     # shape [N]
-    dist_ap = torch.FloatTensor([torch.max(mt[mk]) for mt,mk in zip(dist_mat,is_pos)]).view(N,1)
-    dist_an = torch.FloatTensor([torch.min(mt[mk]) for mt,mk in zip(dist_mat,is_neg)]).view(N,1)
+    dist_ap = torch.FloatTensor([torch.max(mt[mk]) for mt,mk in zip(dist_mat,is_pos)]).view(N,1).cuda()
+    dist_an = torch.FloatTensor([torch.min(mt[mk]) for mt,mk in zip(dist_mat,is_neg)]).view(N,1).cuda()
 
     # dist_ap = dist_ap.squeeze(-1)
     # dist_an = dist_an.squeeze(-1)
@@ -121,3 +122,9 @@ class TripletLoss(object):
 
         loss = loss.requires_grad_()
         return loss
+
+def softmax_triplet_loss(scores,feats,labels):
+    triplet = TripletLoss(margin=0.3)
+    # clf = nn.CrossEntropyLoss()
+    # labels = labels.cuda()
+    return triplet(feats,labels)+ F.cross_entropy(scores,labels)

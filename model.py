@@ -333,8 +333,8 @@ def resnet50(num_classes, loss='softmax', pretrained=True, **kwargs):
         loss=loss,
         block=Bottleneck,
         layers=[3, 4, 6, 3],
-        last_stride=2,
-        fc_dims=None,
+        # last_stride=2, # 注释掉，以便外部传入
+        # fc_dims=None,
         dropout_p=None,
         **kwargs
     )
