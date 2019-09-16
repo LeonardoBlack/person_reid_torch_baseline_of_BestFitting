@@ -331,7 +331,7 @@ def train(cfg):
             writer.add_scalars('eval',{'rank1':all_cmc[0],
                                        'rank5':all_cmc[4],
                                        'mAP':mAP},idx_ep)
-            writer.flush()
+            # writer.flush()
 
             time_elapsed = time.time() - since
             print('evaluate time elapsed {:.0f}m {:.04f}s'.format(
