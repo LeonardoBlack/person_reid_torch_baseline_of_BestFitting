@@ -166,10 +166,16 @@ import progressbar
 
 from model import resnet50
 
+from torch.utils.tensorboard import SummaryWriter
+
 def train(cfg):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     train_loader, val_loader, num_query, num_class = make_data_loader(cfg)
+
+    if not os.path.exists(cfg.LOG_DIR):
+        os.mkdir(cfg.LOG_DIR)
+    writer = SummaryWriter(log_dir=cfg.LOG_DIR)
 
     # backbone
     model = resnet50(num_class,loss='triplet', pretrained=True)
@@ -202,9 +208,9 @@ def train(cfg):
         clf_ls = nn.CrossEntropyLoss()
     triplet_ls = TripletLoss() #margin=cfg.SOLVER.MARGIN)
 
-    startEp = 3
+    startEp = 65
 
-    model.load_state_dict(torch.load('output/cfl1ep_88mLoss_0.033406mAcc99.080528_ce.pth'))
+    model.load_state_dict(torch.load('output/cfl1ep_65mLoss_0.499213mAcc37.607230_tp.pth'))
 
     # optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
     optimizer = optim.Adam(update_params,lr=cfg.SOLVER.BASE_LR)
@@ -215,14 +221,17 @@ def train(cfg):
 
     print('start training ......')
     print('sampler:',cfg.DATALOADER.SAMPLER)
+    gSteps = 0
     for idx_ep in range(startEp,startEp+cfg.SOLVER.MAX_EPOCHS):
         last_loss = 0.0
         last_acc = 0.0
         running_loss = 0.0
         acc = 0
         print('epoch[%d/%d]' % (idx_ep+1,startEp+cfg.SOLVER.MAX_EPOCHS))
+        scheduler.step()
         for i in progressbar.progressbar(range(len(train_loader)),redirect_stdout=True):
             # get the inputs
+            gSteps += 1
             data = next(iter(train_loader))
             inputs, labels = data[0],data[1]
             inputs = inputs.to(device)
@@ -245,12 +254,18 @@ def train(cfg):
                 # print(type(triplet_loss),type(clf_loss))
                 loss = triplet_loss + clf_loss
                 # loss = loss.type(torch.cuda.FloatTensor)
+                # 分别记录两种loss
+                writer.add_scalars('loss', {'clf_loss': clf_loss.item(),
+                                               'triplet_loss': triplet_loss.item()}, gSteps)
             else:
                 print('unknown sampler:',cfg.DATALOADER.SAMPLER)
 
+            # 记录loss变化,lr 变化
+            writer.add_scalar('loss/all_loss',loss.item(),global_step=gSteps)
+            writer.add_histogram('learning-rate',scheduler.get_lr()[0],global_step=gSteps)
+
             loss.backward()
             optimizer.step()
-            scheduler.step()
 
             # print statistics
             running_loss += loss.item()
@@ -312,6 +327,11 @@ def train(cfg):
             all_cmc,mAP = eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=20)
             print('rank1:',all_cmc[0],
                   'mAP:',mAP)
+
+            writer.add_scalars('eval',{'rank1':all_cmc[0],
+                                       'rank5':all_cmc[4],
+                                       'mAP':mAP},idx_ep)
+            writer.flush()
 
             time_elapsed = time.time() - since
             print('evaluate time elapsed {:.0f}m {:.04f}s'.format(

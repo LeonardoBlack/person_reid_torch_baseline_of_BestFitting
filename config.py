@@ -120,7 +120,7 @@ _C.SOLVER.WEIGHT_DECAY_BIAS = 0.
 # decay rate of learning rate
 _C.SOLVER.GAMMA = 0.1
 # decay step of learning rate
-_C.SOLVER.STEPS = (30, 55)
+_C.SOLVER.STEPS = (30, 70)
 
 # warm up factor
 _C.SOLVER.WARMUP_FACTOR = 1.0 / 3
@@ -160,6 +160,7 @@ _C.TEST.FEAT_NORM = 'yes'
 # ---------------------------------------------------------------------------- #
 # Path to checkpoint and saved log of trained model
 _C.OUTPUT_DIR = "output"
+_C.LOG_DIR = 'log'
 
 def make_default_config():
     return _C
