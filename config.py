@@ -139,7 +139,7 @@ _C.SOLVER.EVAL_PERIOD = 2
 # Number of images per batch
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
-_C.SOLVER.IMS_PER_BATCH = 12
+_C.SOLVER.IMS_PER_BATCH = 128
 
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch

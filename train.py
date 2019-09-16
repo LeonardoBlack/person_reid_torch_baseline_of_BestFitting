@@ -156,7 +156,7 @@ import torch
 
 import torch.nn.functional as F
 
-from loss_fn import euclidean_dist,TripletLoss,softmax_triplet_loss
+from loss_fn import euclidean_dist,TripletLoss,softmax_triplet_loss,CrossEntropyLabelSmooth
 
 from config import _C as cfg
 import os
@@ -196,13 +196,15 @@ def train(cfg):
                 update_params.append(param)
 
     model.to(device)
-
-    clf_ls = nn.CrossEntropyLoss()
+    if cfg.MODEL.IF_LABELSMOOTH == 'on':
+        clf_ls = CrossEntropyLabelSmooth(num_classes=num_class)
+    else:
+        clf_ls = nn.CrossEntropyLoss()
     triplet_ls = TripletLoss() #margin=cfg.SOLVER.MARGIN)
 
     startEp = 3
 
-    model.load_state_dict(torch.load('output/cfl1ep_3mLoss_0.016247mAcc99.585335_tp.pth'))
+    model.load_state_dict(torch.load('output/cfl1ep_88mLoss_0.033406mAcc99.080528_ce.pth'))
 
     # optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
     optimizer = optim.Adam(update_params,lr=cfg.SOLVER.BASE_LR)
@@ -248,7 +250,7 @@ def train(cfg):
 
             loss.backward()
             optimizer.step()
-            # scheduler.step()
+            scheduler.step()
 
             # print statistics
             running_loss += loss.item()
@@ -262,10 +264,10 @@ def train(cfg):
                 # print('dist_ap:',_ap)
                 # print('dist_an:',_an)
                 # print('dist_an - dist_ap',_an - _ap)
-                print('conv1.weight.grad',model.conv1.weight.grad) #or layer1.0.conv1.weight
-                print('classifier.weight.grad',model.classifier.weight.grad)
+                # print('conv1.weight.grad',model.conv1.weight.grad) #or layer1.0.conv1.weight
+                # print('classifier.weight.grad',model.classifier.weight.grad)
                 # print('loss.grad',loss.grad)
-                print(model.conv1.weight.requires_grad,model.classifier.weight.requires_grad,loss.requires_grad)
+                # print(model.conv1.weight.requires_grad,model.classifier.weight.requires_grad,loss.requires_grad)
 
         # evaluation after finish a epoch,may save the model
         if (idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1) \
