@@ -80,7 +80,7 @@ _C.DATALOADER = CN()
 # Number of data loading threads
 _C.DATALOADER.NUM_WORKERS = 8
 # Sampler for data loading
-_C.DATALOADER.SAMPLER = 'softmax-triplet'
+_C.DATALOADER.SAMPLER = 'triplet'
 # Number of instance for one batch
 _C.DATALOADER.NUM_INSTANCE = 16
 
@@ -93,13 +93,13 @@ _C.SOLVER.OPTIMIZER_NAME = "Adam"
 # Number of max epoches
 _C.SOLVER.MAX_EPOCHS = 120
 # Base learning rate
-_C.SOLVER.BASE_LR = 3e-4
+_C.SOLVER.BASE_LR = 3e-5
 # Factor of learning bias
 _C.SOLVER.BIAS_LR_FACTOR = 2
 # Momentum
 _C.SOLVER.MOMENTUM = 0.9
 # Margin of triplet loss
-_C.SOLVER.MARGIN = 0.3
+_C.SOLVER.MARGIN = 1.0
 # Margin of cluster ;pss
 _C.SOLVER.CLUSTER_MARGIN = 0.3
 # Learning rate of SGD to learn the centers of center loss
@@ -132,20 +132,20 @@ _C.SOLVER.WARMUP_METHOD = "linear"
 # epoch number of saving checkpoints
 _C.SOLVER.CHECKPOINT_PERIOD = 1
 # iteration of display training log
-_C.SOLVER.LOG_PERIOD = 20  # num_batch
+_C.SOLVER.LOG_PERIOD = 10  # num_batch
 # epoch number of validation
 _C.SOLVER.EVAL_PERIOD = 2
 
 # Number of images per batch
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
-_C.SOLVER.IMS_PER_BATCH = 128
+_C.SOLVER.IMS_PER_BATCH = 12
 
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
 _C.TEST = CN()
 # Number of images per batch during test
-_C.TEST.IMS_PER_BATCH = 128
+_C.TEST.IMS_PER_BATCH = 64
 # If test with re-ranking, options: 'yes','no'
 _C.TEST.RE_RANKING = 'no'
 # Path to trained model

@@ -176,6 +176,10 @@ def train(cfg):
     # model = resnet50(num_class,loss='softmax', pretrained=True,fc_dims=[1000])#,last_stride=2)
     # print('^'*10,'model.fc:',model.fc) # always None ,so only one classifier layer is fc
 
+    # for name,param in model.named_parameters():
+    #     print(name)
+    # return
+
     update_params = model.parameters()
     if cfg.MODEL.FROZEN_FEATURE_EXTRACTION:
         update_params = []
@@ -194,18 +198,21 @@ def train(cfg):
     model.to(device)
 
     clf_ls = nn.CrossEntropyLoss()
-    triplet_ls = TripletLoss(margin=0.3)
+    triplet_ls = TripletLoss() #margin=cfg.SOLVER.MARGIN)
 
-    startEp = 10
+    startEp = 3
 
-    model.load_state_dict(torch.load('output/cfl1ep_2mLoss_9.274844mAcc0.000000_cetp.pth'))
+    model.load_state_dict(torch.load('output/cfl1ep_3mLoss_0.016247mAcc99.585335_tp.pth'))
 
     # optimizer = optim.SGD(model.parameters(), lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
     optimizer = optim.Adam(update_params,lr=cfg.SOLVER.BASE_LR)
-    # scheduler = WarmupMultiStepLR(optimizer, cfg.SOLVER.STEPS, cfg.SOLVER.GAMMA, cfg.SOLVER.WARMUP_FACTOR,
-    #                                       cfg.SOLVER.WARMUP_ITERS, cfg.SOLVER.WARMUP_METHOD)
+    scheduler = WarmupMultiStepLR(optimizer, cfg.SOLVER.STEPS, cfg.SOLVER.GAMMA, cfg.SOLVER.WARMUP_FACTOR,
+                                          cfg.SOLVER.WARMUP_ITERS, cfg.SOLVER.WARMUP_METHOD)
+
+    print(model.conv1.training,model.classifier.training)
 
     print('start training ......')
+    print('sampler:',cfg.DATALOADER.SAMPLER)
     for idx_ep in range(startEp,startEp+cfg.SOLVER.MAX_EPOCHS):
         last_loss = 0.0
         last_acc = 0.0
@@ -229,9 +236,9 @@ def train(cfg):
             if cfg.DATALOADER.SAMPLER == 'softmax':
                 loss = clf_ls(scores, labels)
             elif cfg.DATALOADER.SAMPLER == 'triplet':
-                loss = triplet_ls(embedings, labels,normalize_feature=True)
+                loss,_ap,_an = triplet_ls(scores, labels,normalize_feature=True)
             elif cfg.DATALOADER.SAMPLER == 'softmax-triplet':
-                triplet_loss = triplet_ls(embedings,labels)
+                triplet_loss,_ap,_an = triplet_ls(embedings,labels)
                 clf_loss = clf_ls(scores,labels) # F.cross_entropy(scores,labels)
                 # print(type(triplet_loss),type(clf_loss))
                 loss = triplet_loss + clf_loss
@@ -245,13 +252,20 @@ def train(cfg):
 
             # print statistics
             running_loss += loss.item()
-            acc += accuracy(embedings,labels)[0]  # only the top one
+            acc += accuracy(scores,labels)[0].item()  # only the top one
             if i % cfg.SOLVER.LOG_PERIOD == cfg.SOLVER.LOG_PERIOD-1:    # print every 2000 mini-batches
                 print('last %d batches mean-loss: %.5f mean-acc：%.3f' % (cfg.SOLVER.LOG_PERIOD,
                                          (running_loss-last_loss)/cfg.SOLVER.LOG_PERIOD,
                                          (acc-last_acc)/cfg.SOLVER.LOG_PERIOD))
                 last_acc = acc
                 last_loss = running_loss
+                # print('dist_ap:',_ap)
+                # print('dist_an:',_an)
+                # print('dist_an - dist_ap',_an - _ap)
+                print('conv1.weight.grad',model.conv1.weight.grad) #or layer1.0.conv1.weight
+                print('classifier.weight.grad',model.classifier.weight.grad)
+                # print('loss.grad',loss.grad)
+                print(model.conv1.weight.requires_grad,model.classifier.weight.requires_grad,loss.requires_grad)
 
         # evaluation after finish a epoch,may save the model
         if (idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1) \
@@ -302,7 +316,7 @@ def train(cfg):
                 time_elapsed // 60, time_elapsed % 60))
         # save the  model
         if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1:
-            filename = 'cfl1ep_%dmLoss_%05fmAcc%05f_cetp.pth' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
+            filename = 'cfl1ep_%dmLoss_%05fmAcc%05f_tp.pth' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
             if not os.path.exists(cfg.OUTPUT_DIR):
                os.mkdir(cfg.OUTPUT_DIR)
             torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))
