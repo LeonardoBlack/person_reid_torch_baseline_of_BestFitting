@@ -130,8 +130,7 @@ class TripletLoss(object):
 
 def softmax_triplet_loss(scores,feats,labels):
     triplet = TripletLoss(margin=0.3)
-    # clf = nn.CrossEntropyLoss()
-    # labels = labels.cuda()
+
     return triplet(feats,labels)+ F.cross_entropy(scores,labels)
 
 

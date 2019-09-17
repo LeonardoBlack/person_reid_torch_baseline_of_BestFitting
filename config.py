@@ -93,7 +93,7 @@ _C.SOLVER.OPTIMIZER_NAME = "Adam"
 # Number of max epoches
 _C.SOLVER.MAX_EPOCHS = 120
 # Base learning rate
-_C.SOLVER.BASE_LR = 3e-5
+_C.SOLVER.BASE_LR = 3e-4
 # Factor of learning bias
 _C.SOLVER.BIAS_LR_FACTOR = 2
 # Momentum
@@ -125,7 +125,7 @@ _C.SOLVER.STEPS = (30, 70)
 # warm up factor
 _C.SOLVER.WARMUP_FACTOR = 1.0 / 3
 # iterations of warm up
-_C.SOLVER.WARMUP_ITERS = 500
+_C.SOLVER.WARMUP_ITERS = 10
 # method of warm up, option: 'constant','linear'
 _C.SOLVER.WARMUP_METHOD = "linear"
 
@@ -139,7 +139,7 @@ _C.SOLVER.EVAL_PERIOD = 2
 # Number of images per batch
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
-_C.SOLVER.IMS_PER_BATCH = 128
+_C.SOLVER.IMS_PER_BATCH = 64
 
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
