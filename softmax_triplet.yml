@@ -63,6 +63,6 @@ TEST:
   NECK_FEAT: 'after'
   FEAT_NORM: 'yes'
 
-OUTPUT_DIR: "/content/output"
+OUTPUT_DIR: "output"
 
 

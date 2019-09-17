@@ -248,7 +248,7 @@ def train(cfg):
                 loss = clf_ls(scores, labels)
             elif cfg.DATALOADER.SAMPLER == 'triplet':
                 loss,_ap,_an = triplet_ls(scores, labels,normalize_feature=True)
-            elif cfg.DATALOADER.SAMPLER == 'softmax-triplet':
+            elif cfg.DATALOADER.SAMPLER == 'softmax_triplet':
                 triplet_loss,_ap,_an = triplet_ls(embedings,labels)
                 clf_loss = clf_ls(scores,labels) # F.cross_entropy(scores,labels)
                 # print(type(triplet_loss),type(clf_loss))
