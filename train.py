@@ -70,7 +70,7 @@ import progressbar
 
 from model import resnet50
 from torch.utils.tensorboard import SummaryWriter
-
+from modeling import build_model
 
 def train(cfg):
     if cfg.MODEL.DEVICE == 'cuda':
@@ -85,13 +85,11 @@ def train(cfg):
     writer = SummaryWriter(log_dir=cfg.LOG_DIR)
 
     # backbone
-    model = resnet50(num_class,loss='triplet', pretrained=True)
+    model = build_model(cfg,num_class)
+    # model = resnet50(num_class,loss='triplet', pretrained=True)
     # model = resnet50(num_class,loss='softmax', pretrained=True,fc_dims=[1000])#,last_stride=2)
-    # print('^'*10,'model.fc:',model.fc) # always None ,so only one classifier layer is fc
 
-    # for name,param in model.named_parameters():
-    #     print(name)
-    # return
+    # writer.add_graph(model)
 
     update_params = model.parameters()
     if cfg.MODEL.FROZEN_FEATURE_EXTRACTION:
@@ -117,13 +115,15 @@ def train(cfg):
         clf_ls = nn.CrossEntropyLoss()
     triplet_ls = TripletLoss() #margin=cfg.SOLVER.MARGIN)
 
-    startEp = 65
-    pre_state_dict_path = 'output/cfl1ep_65mLoss_0.499213mAcc37.607230_tp.pth'
-    if os.path.exists(pre_state_dict_path):
-        # 方便切换 加载到相应的device上
-        model.load_state_dict(torch.load(pre_state_dict_path, map_location=device))
-    print('Evaluation before training ...')
-    evaluation(cfg, device, model, val_loader, num_query)
+    startEp = 0
+    # pre_state_dict_path = 'output/cfl1ep_60mLoss_3.335390mAcc86.151958_cetp.pth'
+    # if os.path.exists(pre_state_dict_path):
+    #     # 方便切换 加载到相应的device上
+    #     model.load_state_dict(torch.load(pre_state_dict_path, map_location=device))
+    # else:
+    #     print(pre_state_dict_path,'not exists')
+    # print('Evaluation before training ...')
+    # evaluation(cfg, device, model, val_loader, num_query)
 
     optimizer = optim.SGD(update_params, lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
     # optimizer = optim.Adam(update_params,lr=cfg.SOLVER.BASE_LR)
@@ -175,14 +175,14 @@ def train(cfg):
             # 记录loss变化,lr 变化
             writer.add_scalar('loss/all_loss',loss.item(),global_step=gSteps)
             writer.add_scalar('learning-rate',scheduler.get_lr()[0],global_step=gSteps)
-            writer.add_histogram('conv1.weight.data',model.conv1.weight.data,global_step=gSteps)
+            writer.add_histogram('conv1.weight.data',model.base.conv1.weight.data,global_step=gSteps)
             writer.add_histogram('classifier.weight.data',model.classifier.weight.data,global_step=gSteps)
 
             loss.backward()
             optimizer.step()
 
             # record how grad changes
-            writer.add_histogram('conv1.weight.grad',model.conv1.weight.grad,global_step=gSteps) # or layer1.0.conv1.weight
+            writer.add_histogram('conv1.weight.grad',model.base.conv1.weight.grad,global_step=gSteps) # or layer1.0.conv1.weight
             writer.add_histogram('classifier.weight.grad',model.classifier.weight.grad,global_step=gSteps)
 
             # print statistics
@@ -203,15 +203,15 @@ def train(cfg):
                 # print(model.conv1.weight.requires_grad,model.classifier.weight.requires_grad,loss.requires_grad)
 
         # evaluation after finish EVAL_PERIOD epochs
-        if (idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1) \
-                and running_loss/len(train_loader) < 2:
+        if (idx_ep % cfg.SOLVER.EVAL_PERIOD == cfg.SOLVER.EVAL_PERIOD - 1 or idx_ep == cfg.SOLVER.MAX_EPOCHS - 1) :
             all_cmc,mAP = evaluation(cfg,device,model,val_loader,num_query)
             writer.add_scalars('eval',{'rank1':all_cmc[0],
                                        'rank5':all_cmc[4],
                                        'mAP':mAP},idx_ep)
         # save the  model
-        if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1:
-            filename = 'cfl1ep_%dmLoss_%05fmAcc%05f_tp.pth' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
+        if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1 \
+                and running_loss/len(train_loader) < 4:
+            filename = 'cfl1ep_%dmLoss_%05fmAcc%05f_cetp.pth' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
             if not os.path.exists(cfg.OUTPUT_DIR):
                os.mkdir(cfg.OUTPUT_DIR)
             torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))

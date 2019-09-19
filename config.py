@@ -26,7 +26,7 @@ _C.MODEL.NAME = 'resnet50'
 # Last stride of backbone
 _C.MODEL.LAST_STRIDE = 1
 # Path to pretrained model of backbone
-_C.MODEL.PRETRAIN_PATH = ''
+_C.MODEL.PRETRAIN_PATH = '/students/julyedu_545342/.cache/torch/checkpoints/resnet50-19c8e357.pth'
 # Use ImageNet pretrained model to initialize backbone or use self trained model to initialize the whole model
 # Options: 'imagenet' or 'self'
 _C.MODEL.PRETRAIN_CHOICE = 'imagenet'
@@ -80,7 +80,7 @@ _C.DATALOADER = CN()
 # Number of data loading threads
 _C.DATALOADER.NUM_WORKERS = 8
 # Sampler for data loading
-_C.DATALOADER.SAMPLER = 'triplet'
+_C.DATALOADER.SAMPLER = 'softmax_triplet'
 # Number of instance for one batch
 _C.DATALOADER.NUM_INSTANCE = 16
 
@@ -130,7 +130,7 @@ _C.SOLVER.WARMUP_ITERS = 10
 _C.SOLVER.WARMUP_METHOD = "linear"
 
 # epoch number of saving checkpoints
-_C.SOLVER.CHECKPOINT_PERIOD = 1
+_C.SOLVER.CHECKPOINT_PERIOD = 5
 # iteration of display training log
 _C.SOLVER.LOG_PERIOD = 10  # num_batch
 # epoch number of validation
@@ -139,13 +139,13 @@ _C.SOLVER.EVAL_PERIOD = 2
 # Number of images per batch
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
-_C.SOLVER.IMS_PER_BATCH = 128
+_C.SOLVER.IMS_PER_BATCH = 96
 
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
 _C.TEST = CN()
 # Number of images per batch during test
-_C.TEST.IMS_PER_BATCH = 128
+_C.TEST.IMS_PER_BATCH = 96
 # If test with re-ranking, options: 'yes','no'
 _C.TEST.RE_RANKING = 'no'
 # Path to trained model
@@ -160,7 +160,7 @@ _C.TEST.FEAT_NORM = 'yes'
 # ---------------------------------------------------------------------------- #
 # Path to checkpoint and saved log of trained model
 _C.OUTPUT_DIR = "output"
-_C.LOG_DIR = 'log_917'
+_C.LOG_DIR = 'log_919'
 
 def make_default_config():
     return _C
