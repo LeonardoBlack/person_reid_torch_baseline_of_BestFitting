@@ -209,8 +209,7 @@ def train(cfg):
                                        'rank5':all_cmc[4],
                                        'mAP':mAP},idx_ep)
         # save the  model
-        if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1 \
-                and running_loss/len(train_loader) < 4:
+        if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1 :
             filename = 'cfl1ep_%dmLoss_%05fmAcc%05f_cetp.pth' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
             if not os.path.exists(cfg.OUTPUT_DIR):
                os.mkdir(cfg.OUTPUT_DIR)
