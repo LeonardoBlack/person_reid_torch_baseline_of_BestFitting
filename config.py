@@ -93,7 +93,7 @@ _C.SOLVER.OPTIMIZER_NAME = "Adam"
 # Number of max epoches
 _C.SOLVER.MAX_EPOCHS = 120
 # Base learning rate
-_C.SOLVER.BASE_LR = 3e-5
+_C.SOLVER.BASE_LR = 3.5e-4
 # Factor of learning bias
 _C.SOLVER.BIAS_LR_FACTOR = 2
 # Momentum
@@ -120,7 +120,7 @@ _C.SOLVER.WEIGHT_DECAY_BIAS = 0.
 # decay rate of learning rate
 _C.SOLVER.GAMMA = 0.1
 # decay step of learning rate
-_C.SOLVER.STEPS = (30, 70)
+_C.SOLVER.STEPS = (40, 70)
 
 # warm up factor
 _C.SOLVER.WARMUP_FACTOR = 1.0 / 3
@@ -160,7 +160,7 @@ _C.TEST.FEAT_NORM = 'yes'
 # ---------------------------------------------------------------------------- #
 # Path to checkpoint and saved log of trained model
 _C.OUTPUT_DIR = "output"
-_C.LOG_DIR = 'log_919'
+_C.LOG_DIR = 'log_920'
 
 def make_default_config():
     return _C
