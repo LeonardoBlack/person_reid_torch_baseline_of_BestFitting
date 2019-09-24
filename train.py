@@ -170,7 +170,7 @@ def train(cfg):
                 triplet_loss,_ap,_an = triplet_ls(embedings,labels)
                 clf_loss = clf_ls(scores,labels) # F.cross_entropy(scores,labels)
                 # print(type(triplet_loss),type(clf_loss))
-                if cfg.SOLVER.CROSS_TRAIN == True and (idx_ep+1) % 5 == 0:
+                if cfg.SOLVER.CROSS_TRAIN == True and idx_ep % 5 == 0:
                     weight = 1 - ignore
                     ignore = bool(1-ignore) # 取反,每单独训练 几个 clf-loss ，再训练几个混合loss
 
