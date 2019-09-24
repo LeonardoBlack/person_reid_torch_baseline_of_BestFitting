@@ -123,7 +123,7 @@ _C.SOLVER.GAMMA = 0.1
 _C.SOLVER.STEPS = (40, 70)
 
 # warm up factor
-_C.SOLVER.WARMUP_FACTOR = 1.0 / 3
+_C.SOLVER.WARMUP_FACTOR = 0.01
 # iterations of warm up
 _C.SOLVER.WARMUP_ITERS = 10
 # method of warm up, option: 'constant','linear'
@@ -134,12 +134,14 @@ _C.SOLVER.CHECKPOINT_PERIOD = 5
 # iteration of display training log
 _C.SOLVER.LOG_PERIOD = 10  # num_batch
 # epoch number of validation
-_C.SOLVER.EVAL_PERIOD = 2
+_C.SOLVER.EVAL_PERIOD = 1
 
 # Number of images per batch
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
 _C.SOLVER.IMS_PER_BATCH = 128
+
+_C.SOLVER.CROSS_TRAIN = True
 
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
@@ -160,7 +162,7 @@ _C.TEST.FEAT_NORM = 'yes'
 # ---------------------------------------------------------------------------- #
 # Path to checkpoint and saved log of trained model
 _C.OUTPUT_DIR = "output"
-_C.LOG_DIR = 'log_920'
+_C.LOG_DIR = 'log_924'
 
 def make_default_config():
     return _C

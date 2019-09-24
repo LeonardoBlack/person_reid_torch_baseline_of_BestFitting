@@ -116,12 +116,16 @@ def train(cfg):
     triplet_ls = TripletLoss() #margin=cfg.SOLVER.MARGIN)
 
     startEp = 0
-    # pre_state_dict_path = 'output/cfl1ep_60mLoss_3.335390mAcc86.151958_cetp.pth'
-    # if os.path.exists(pre_state_dict_path):
-    #     # 方便切换 加载到相应的device上
-    #     model.load_state_dict(torch.load(pre_state_dict_path, map_location=device))
-    # else:
-    #     print(pre_state_dict_path,'not exists')
+    pre_state_dict_path = 'output/res50ep50_mLoss1.647281_mAcc99.364277_cetp.pth'
+    if os.path.exists(pre_state_dict_path):
+        # 方便切换 加载到相应的device上
+        checkpoint = torch.load(pre_state_dict_path, map_location=device)
+        # for name in checkpoint:
+        #     print(name,type(checkpoint[name]))
+        model.load_state_dict(checkpoint['model_state_dict'])
+        print('loaded weight:',pre_state_dict_path)
+    else:
+        print(pre_state_dict_path,'not exists')
     # print('Evaluation before training ...')
     # evaluation(cfg, device, model, val_loader, num_query)
 
@@ -134,6 +138,8 @@ def train(cfg):
     print('start training ......')
     print('sampler:',cfg.DATALOADER.SAMPLER)
     gSteps = 0
+    ignore = True
+    weight = 1
     for idx_ep in range(startEp,startEp+cfg.SOLVER.MAX_EPOCHS):
         last_loss = 0.0
         last_acc = 0.0
@@ -164,8 +170,11 @@ def train(cfg):
                 triplet_loss,_ap,_an = triplet_ls(embedings,labels)
                 clf_loss = clf_ls(scores,labels) # F.cross_entropy(scores,labels)
                 # print(type(triplet_loss),type(clf_loss))
-                loss = triplet_loss + clf_loss
-                # loss = loss.type(torch.cuda.FloatTensor)
+                if cfg.SOLVER.CROSS_TRAIN == True and (idx_ep+1) % 5 == 0:
+                    weight = 1 - ignore
+                    ignore = bool(1-ignore) # 取反,每单独训练 几个 clf-loss ，再训练几个混合loss
+
+                loss = weight*triplet_loss + clf_loss
                 # 分别记录两种loss
                 writer.add_scalars('loss', {'clf_loss': clf_loss.item(),
                                                'triplet_loss': triplet_loss.item()}, gSteps)
@@ -210,10 +219,15 @@ def train(cfg):
                                        'mAP':mAP},idx_ep)
         # save the  model
         if idx_ep % cfg.SOLVER.CHECKPOINT_PERIOD == cfg.SOLVER.CHECKPOINT_PERIOD - 1 :
-            filename = 'cfl1ep_%dmLoss_%05fmAcc%05f_cetp.pth' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
+            filename = 'res50ep%d_mLoss%05f_mAcc%05f_cetp.pth' % (idx_ep+1,running_loss/len(train_loader),acc/len(train_loader))
             if not os.path.exists(cfg.OUTPUT_DIR):
                os.mkdir(cfg.OUTPUT_DIR)
-            torch.save(model.state_dict(),os.path.join(cfg.OUTPUT_DIR,filename))
+            checkpoint = {'model_state_dict': model.state_dict(),
+                # 'optimizer_state_dict': optimizer.state_dict(),
+                          'config': cfg,
+                            'loss': loss,
+                          'steps': gSteps}
+            torch.save(checkpoint,os.path.join(cfg.OUTPUT_DIR,filename))
 
     print('finish training >.<')
 
