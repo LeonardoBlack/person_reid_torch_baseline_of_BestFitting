@@ -208,8 +208,7 @@ def evaluation(cfg,device,model,val_loader,num_query):
         distmat = re_ranking(q_features, g_features, k1=20, k2=6, lambda_value=0.3)
     else:
         distmat = euclidean_dist(q_features, g_features)
-
-    distmat = distmat.cpu().numpy()
+        distmat = distmat.cpu().numpy()
 
     all_cmc, mAP = eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=20)
     print('rank1:', all_cmc[0],
