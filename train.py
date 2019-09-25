@@ -116,18 +116,18 @@ def train(cfg):
     triplet_ls = TripletLoss() #margin=cfg.SOLVER.MARGIN)
 
     startEp = 0
-    pre_state_dict_path = 'output/res50ep50_mLoss1.647281_mAcc99.364277_cetp.pth'
+    pre_state_dict_path = 'output/res50ep65_mLoss1.410033_mAcc100.456374_cetp.pth'
     if os.path.exists(pre_state_dict_path):
         # 方便切换 加载到相应的device上
         checkpoint = torch.load(pre_state_dict_path, map_location=device)
-        # for name in checkpoint:
-        #     print(name,type(checkpoint[name]))
+        for name in checkpoint:
+            print(name,type(checkpoint[name]))
         model.load_state_dict(checkpoint['model_state_dict'])
         print('loaded weight:',pre_state_dict_path)
     else:
         print(pre_state_dict_path,'not exists')
-    # print('Evaluation before training ...')
-    # evaluation(cfg, device, model, val_loader, num_query)
+    print('Evaluation before training ...')
+    evaluation(cfg, device, model, val_loader, num_query)
 
     optimizer = optim.SGD(update_params, lr=cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
     # optimizer = optim.Adam(update_params,lr=cfg.SOLVER.BASE_LR)
@@ -146,6 +146,7 @@ def train(cfg):
         running_loss = 0.0
         acc = 0
         print('epoch[%d/%d]' % (idx_ep+1,startEp+cfg.SOLVER.MAX_EPOCHS))
+        print('ignore triplet-loss:',ignore)
         scheduler.step()
         for i in progressbar.progressbar(range(len(train_loader)),redirect_stdout=True):
             # get the inputs
@@ -184,15 +185,15 @@ def train(cfg):
             # 记录loss变化,lr 变化
             writer.add_scalar('loss/all_loss',loss.item(),global_step=gSteps)
             writer.add_scalar('learning-rate',scheduler.get_lr()[0],global_step=gSteps)
-            writer.add_histogram('conv1.weight.data',model.base.conv1.weight.data,global_step=gSteps)
-            writer.add_histogram('classifier.weight.data',model.classifier.weight.data,global_step=gSteps)
+            # writer.add_histogram('conv1.weight.data',model.base.conv1.weight.data,global_step=gSteps)
+            # writer.add_histogram('classifier.weight.data',model.classifier.weight.data,global_step=gSteps)
 
             loss.backward()
             optimizer.step()
 
             # record how grad changes
-            writer.add_histogram('conv1.weight.grad',model.base.conv1.weight.grad,global_step=gSteps) # or layer1.0.conv1.weight
-            writer.add_histogram('classifier.weight.grad',model.classifier.weight.grad,global_step=gSteps)
+            # writer.add_histogram('conv1.weight.grad',model.base.conv1.weight.grad,global_step=gSteps) # or layer1.0.conv1.weight
+            # writer.add_histogram('classifier.weight.grad',model.classifier.weight.grad,global_step=gSteps)
 
             # print statistics
             running_loss += loss.item()

@@ -1,12 +1,11 @@
 MODEL:
   PRETRAIN_CHOICE: 'self' #'imagenet'
   PRETRAIN_PATH: '/root/.cache/torch/checkpoints/resnet50-19c8e357.pth'
-  LAST_STRIDE: 2
-  NECK: 'no'
+  LAST_STRIDE: 1
+  NECK: 'bnneck'
   METRIC_LOSS_TYPE: 'triplet'
   IF_LABELSMOOTH: 'off'
   IF_WITH_CENTER: 'no'
-
 
 INPUT:
   SIZE_TRAIN: [256, 128]
